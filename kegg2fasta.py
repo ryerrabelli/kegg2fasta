@@ -55,6 +55,7 @@ def main():
         # and provide other identifiers
         # for nbci, try to take the .1 version
 
+
         # another reasonable thing would be to provide each splice variant as a separate row and fasta entry
 
         # probably the behavior should be a command-line option
