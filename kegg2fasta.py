@@ -1,6 +1,10 @@
 #!/usr/bin/env python
+
+import urllib
+
 import argparse
-import os
+from bs4 import BeautifulSoup
+'''import os
 import fnmatch
 import math
 
@@ -12,7 +16,7 @@ from scipy.special import gammaln as gammaln
 
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm '''
 
 import logging
 logging.basicConfig(format='%(levelname)s %(name)s.%(funcName)s: %(message)s')
@@ -29,7 +33,8 @@ def main():
     args = parser.parse_args()
 
     kegggeneid_list = keggpathway2genes(args.keggid)
-    fp_spreadsheet = open(spreadsheetfile, 'w')
+    print(kegggeneid_list)
+    '''fp_spreadsheet = open(spreadsheetfile, 'w')
     fp_fasta = open(fastafile, 'w')
     for id in kegggeneid_list:
         (ncbiproteinid, ncbigeneid, uniprotid) = kegggene2xref(kegggeneid_list)
@@ -61,6 +66,31 @@ def main():
 
         # if you can find a biopython method to do anything, use it
         # i know the first person who wrote seqio
+    '''
+
+#    kegggeneid_list = keggpathway2genes(args.keggid)
+def keggpathway2genes(keggid):
+    #http://www.kegg.jp/dbget-bin/www_bget?pathway+hsa00120
+    url = "http://www.kegg.jp/dbget-bin/www_bget?pathway+"+keggid
+    import urllib.request
+    r = urllib.request.urlopen(url).read()
+    soup = BeautifulSoup(r,"html.parser")
+    ths = soup.find_all('th')
+    kegggeneid_list = []
+    for th in ths:
+        th_nobr = th.nobr
+        if th_nobr.string == "Gene": #is the header cell for the gene row
+            tr = th.parent #should be the tr that contains the th and the td contains a table of the genes
+            geneinfo = tr.select("td table tr")
+            for geneinfopart in geneinfo:
+                 #only gives the links in the first column (which is the gene code). The 2nd column is the unneeded gene description
+                genecode = geneinfopart.contents[0]
+                for link in genecode.select("a"):
+                    kegggeneid_list.append(link.string)
+    return kegggeneid_list
+
+#(ncbiproteinid, ncbigeneid, uniprotid) = kegggene2xref(kegggeneid_list)
+#def kegggene2xref(kegggeneid_list):
 
 
 
