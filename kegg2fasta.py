@@ -34,6 +34,7 @@ def main():
 
     kegggeneid_list = keggpathway2genes(args.keggid)
     print(kegggeneid_list)
+    print("Gene Count: " + str(len(kegggeneid_list)))
     '''fp_spreadsheet = open(spreadsheetfile, 'w')
     fp_fasta = open(fastafile, 'w')
     for id in kegggeneid_list:
