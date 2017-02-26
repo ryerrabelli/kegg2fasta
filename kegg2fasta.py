@@ -27,52 +27,41 @@ logger.setLevel(logging.INFO)
 
 website = "http://www.kegg.jp"
 
+
 # maybe given an id like abc1234 the output files by default are abc1234.txt and abc1234.fasta
 def main():
     parser = argparse.ArgumentParser(description='Read pathway from KEGG and generate order sheet and fasta',
                                      epilog='Sample call: kegg2fasta hsa00120',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('keggid', help='kegg pathway id')
+    parser.add_argument('keggid', help='kegg pathway kegggeneid')
     args = parser.parse_args()
 
-    kegggeneid_url = keggpathway2genes(args.keggid)
+    kegggeneid_urls = keggpathway2genes(args.keggid)
     #fp_spreadsheet = open(spreadsheetfile, 'w')
     #fp_fasta = open(fastafile, 'w')
-    c=kegggeneid_url.keys()
-    for id in kegggeneid_url.keys():
-        b=kegggeneid_url[id]
-        (ncbiproteinid, ncbigeneid, uniprotid) = kegggene2xref(b)
-        print(str(id) + "\t" + str(uniprotid))
-    '''    (symbol, name, organism) = getfromncbigene(ncbigeneid)
-        (aa_len, sequence) = getfromncbiprotein(ncbiproteinid)
-        # here is where we add a row to the spreadsheet
-        # here is where we add a record to the fasta file
-        # boundary cases to be careful about:
-        # what do you do when there are 0 records
-        # what do you do when there are >1 record
-        # do something reasonable to keep the info
-        # spreadsheet should be plain text, tab delimited
-        # ALWAYS check any text field for a tab. Some jokers slip tabs into gene names
-        # some gene names and symbols have special characters that can screw you up, so check.
-        # things like greek characters, subscripts and superscripts
-        # gene names often have quotes and commas. this is why we never use csv
-        # xlsx format is a pain
-        # but you will probably us some crappy spreadsheet software to look at the output
-        # be careful that you don't change gene names into dates.
+    c=kegggeneid_urls.keys()
+    from gene import Gene
+    import time
+    genes = []
+    start_time = time.time()
+    for kegggeneid in kegggeneid_urls.keys():
+        kegggeneurl=kegggeneid_urls[kegggeneid]
 
-        # the important thing is what to do when there are multiple splice variants listed
-        # one reasonable thing is to provide the sequence for the first splice variant or isoform
-        # and provide other identifiers
-        # for nbci, try to take the .1 version
+        (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, sequence) = kegggene2xref(kegggeneurl)
+        (symbol, name, organism) = getfromncbigene(ncbigeneid_url)
+        #(aa_len, sequence) = getfromncbiprotein(ncbiproteinid_url)
+        gene = Gene(ncbiproteinid_url[1],ncbigeneid_url[1], uniprotid_url[1], symbol, name, organism, aa_len, sequence)
+        genes.append(gene)
+        print(gene.get_row())
+        print("Time since start is: " + str(time.time()-start_time) + " seconds" )
+
+    #file = open('output/pathway-'+args.keggid+"-"+str(int(time.time())), 'w')
+    #for gene in genes:
+    #    file.write(gene.get_row()+"\n")
+    #file.close()
+    print("Finished in "+str(time.time()-start_time)+" seconds")
 
 
-        # another reasonable thing would be to provide each splice variant as a separate row and fasta entry
-
-        # probably the behavior should be a command-line option
-
-        # if you can find a biopython method to do anything, use it
-        # i know the first person who wrote seqio
-    '''
 
 #    kegggeneid_url = keggpathway2genes(args.keggid)
 def keggpathway2genes(keggid):
@@ -94,7 +83,7 @@ def keggpathway2genes(keggid):
                     kegggeneid_url[link.string] = website+link['href']
     return kegggeneid_url
 
-#(ncbiproteinid, ncbigeneid, uniprotid) = kegggene2xref(kegggeneid_list)
+#(ncbiproteinid_url, ncbigeneid_url, uniprotid_url) = kegggene2xref(kegggeneid_list)
 def kegggene2xref(kegggene_url):
     r = urllib.request.urlopen(kegggene_url).read()
     soup = BeautifulSoup(r,"html.parser")
@@ -102,6 +91,8 @@ def kegggene2xref(kegggene_url):
     ncbiproteinid_url = None
     ncbigeneid_url = None
     uniprotid_url = None
+    aa_len = None
+    sequence = None
     for th in ths:
         th_nobr = th.nobr
         if th_nobr.string.lower().strip() == "other dbs": #is the header cell for the Other DBs row
@@ -128,8 +119,68 @@ def kegggene2xref(kegggene_url):
                     infoToRead = "gene"
                 elif div.string != None and div.string.strip() == "UniProt:":
                     infoToRead = "uniprot"
+        elif th_nobr.string.lower().strip() == "aa seq":
+            tr = th.parent
+            aaseq_cell = tr.select("td")[0] #gives a series of divs
+            from bs4.element import NavigableString
+            for child in aaseq_cell.contents:
+                if type(child) is NavigableString:
+                    a = child.strip()
+                    if len(child.strip()) > 0:
+                        if " aa" in child:
+                            aa_lenstr = " ".join(child.string.split()).replace(" aa","")
+                            aa_len = int(aa_lenstr)
+                        else:
+                            sequence = child.string.strip()
 
-    return (ncbiproteinid_url, ncbigeneid_url, uniprotid_url)
+    return (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, sequence)
+
+#returns (symbol, name, organism) = getfromncbigene(ncbigeneid_url)
+def getfromncbigene(ncbigeneid_url):
+    #http://www.kegg.jp/dbget-bin/www_bget?pathway+hsa00120
+    r = urllib.request.urlopen(ncbigeneid_url[0]).read()
+    soup = BeautifulSoup(r,"html.parser")
+    #dt tag on the left, dd tag on the right
+
+    #go to summaryDl
+    summaryDl = soup.find(id="summaryDl")
+    summaryDlChildren = summaryDl.contents
+    foundSymbol = False
+    foundName = False
+    foundOrganism = False
+    symbol = None
+    name = None
+    organism = None
+    from bs4.element import Tag
+    for summaryDlChild in summaryDlChildren:
+        if type(summaryDlChild) is not Tag:
+            continue
+        if foundSymbol:
+            symbol = summaryDlChild.contents[0]
+            foundSymbol = False
+        if foundName:
+            name = summaryDlChild.contents[0]
+            foundName = False
+        if foundOrganism: #will be a link
+            organism_children = summaryDlChild.contents
+            for child in organism_children:
+                if type(child) is Tag:
+                    organism = child.string
+                    break
+            foundOrganism = False
+        title = summaryDlChild.contents[0].string.lower().strip()
+        title = " ".join(title.split())
+        if title == "official symbol":
+            foundSymbol = True
+        elif title == "official full name":
+            foundName = True
+        elif title == "organism":
+            foundOrganism = True
+
+    return (symbol, name, organism)
+
+#(aa_len, sequence) = getfromncbiprotein(ncbiproteinid_url)
+
 
 if __name__ == "__main__":
     main()
