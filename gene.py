@@ -42,7 +42,22 @@ class Gene:
         row = [self.ncbiproteinid , self.ncbigeneid , self.uniprotid , self.symbol , self.name, \
                self.organism , str(self.aa_len),self.sequence]
         rowstr = ""
+        itemNum = 0
         for element in row:
-            elementstr  = " ".join(element.split())
-            rowstr = rowstr + "\t" + elementstr
+
+            try:
+                elementstr  = " ".join(element.split())
+                rowstr = rowstr + "\t" + elementstr
+            except AttributeError:
+                import sys
+                print("Error with "+str(element)+" at position " + str(itemNum) + ":"+str(sys.exc_info()[0]))
+                rowstr = rowstr + "\t" + "Error"
+            itemNum = itemNum+1
+
         return rowstr[1:] #remove initial tab
+
+    def is_correct_length(self):
+        if int(self.aa_len) == len(self.sequence):
+            return True
+        else:
+            return False

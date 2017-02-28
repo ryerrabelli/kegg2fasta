@@ -36,6 +36,8 @@ def main():
     parser.add_argument('keggid', help='kegg pathway kegggeneid')
     args = parser.parse_args()
 
+    print_file = True
+
     kegggeneid_urls = keggpathway2genes(args.keggid)
     #fp_spreadsheet = open(spreadsheetfile, 'w')
     #fp_fasta = open(fastafile, 'w')
@@ -52,13 +54,20 @@ def main():
         #(aa_len, sequence) = getfromncbiprotein(ncbiproteinid_url)
         gene = Gene(ncbiproteinid_url[1],ncbigeneid_url[1], uniprotid_url[1], symbol, name, organism, aa_len, sequence)
         genes.append(gene)
-        print(gene.get_row())
         print("Time since start is: " + str(time.time()-start_time) + " seconds" )
 
-    #file = open('output/pathway-'+args.keggid+"-"+str(int(time.time())), 'w')
-    #for gene in genes:
-    #    file.write(gene.get_row()+"\n")
-    #file.close()
+    if print_file:
+        extension = ".tsv"
+        import datetime
+        #format similar to pathway-hsa00120_2017-02-28_14:30:14
+        filepath = 'output/pathway-'+args.keggid+" " + datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        file = open(filepath + extension, 'w')
+        file.write("ncbiproteinid	ncbigeneid	uniprotid	symbol	name	organism	aa_len	sequence\n")
+        for gene in genes:
+            file.write(gene.get_row()+"\n")
+        file.close()
+    else:
+        print(gene.get_row())
     print("Finished in "+str(time.time()-start_time)+" seconds")
 
 
@@ -123,6 +132,7 @@ def kegggene2xref(kegggene_url):
             tr = th.parent
             aaseq_cell = tr.select("td")[0] #gives a series of divs
             from bs4.element import NavigableString
+            from bs4.element import Tag
             for child in aaseq_cell.contents:
                 if type(child) is NavigableString:
                     a = child.strip()
@@ -132,6 +142,10 @@ def kegggene2xref(kegggene_url):
                             aa_len = int(aa_lenstr)
                         else:
                             sequence = child.string.strip()
+                #bs4.element.Tag. The two <a> (which are unnecessary) as well as the <br> we want will get past the first part of the logical statement
+                elif type(child) is Tag and child.name == "br":
+                    sequence = "".join(str(child).replace("<br>","").replace("</br>","").split())
+
 
     return (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, sequence)
 
