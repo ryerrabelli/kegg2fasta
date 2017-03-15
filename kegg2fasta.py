@@ -57,10 +57,11 @@ def main():
         genes.append(gene)
         print("Time since start is: " + str(time.time()-start_time) + " seconds" )
 
+    import datetime
     filepath = 'output/pathway-'+args.keggid+" " + datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     if print_text_file:
         extension = ".tsv"
-        import datetime
+
         #format similar to pathway-hsa00120_2017-02-28_14:30:14
         file = open(filepath + extension, 'w')
         file.write("ncbiproteinid	ncbigeneid	uniprotid	symbol	name	organism	aa_len	aa_sequence\n")
