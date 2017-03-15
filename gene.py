@@ -1,6 +1,6 @@
 
 class Gene:
-    def __init__(self, ncbiproteinid, ncbigeneid, uniprotid, symbol, name, organism, aa_len, sequence):
+    def __init__(self, ncbiproteinid, ncbigeneid, uniprotid, symbol, name, organism, aa_len, aa_sequence):
         self.ncbiproteinid = ncbiproteinid
         self.ncbigeneid = ncbigeneid
         self.uniprotid = uniprotid
@@ -8,7 +8,7 @@ class Gene:
         self.name = name
         self.organism = organism
         self.aa_len = aa_len
-        self.sequence = sequence
+        self.aa_sequence = aa_sequence
 
     '''    # here is where we add a row to the spreadsheet
         # here is where we add a record to the fasta file
@@ -40,7 +40,7 @@ class Gene:
     '''
     def get_row(self):
         row = [self.ncbiproteinid , self.ncbigeneid , self.uniprotid , self.symbol , self.name, \
-               self.organism , str(self.aa_len),self.sequence]
+               self.organism , str(self.aa_len),self.aa_sequence]
         rowstr = ""
         itemNum = 0
         for element in row:
@@ -57,7 +57,7 @@ class Gene:
         return rowstr[1:] #remove initial tab
 
     def is_correct_length(self):
-        if int(self.aa_len) == len(self.sequence):
+        if int(self.aa_len) == len(self.aa_sequence):
             return True
         else:
             return False

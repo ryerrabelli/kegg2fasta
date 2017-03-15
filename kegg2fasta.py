@@ -36,7 +36,8 @@ def main():
     parser.add_argument('keggid', help='kegg pathway kegggeneid')
     args = parser.parse_args()
 
-    print_file = True
+    print_text_file = True
+    print_fasta_file = True
 
     kegggeneid_urls = keggpathway2genes(args.keggid)
     #fp_spreadsheet = open(spreadsheetfile, 'w')
@@ -49,25 +50,39 @@ def main():
     for kegggeneid in kegggeneid_urls.keys():
         kegggeneurl=kegggeneid_urls[kegggeneid]
 
-        (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, sequence) = kegggene2xref(kegggeneurl)
+        (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, aa_sequence) = kegggene2xref(kegggeneurl)
         (symbol, name, organism) = getfromncbigene(ncbigeneid_url)
-        #(aa_len, sequence) = getfromncbiprotein(ncbiproteinid_url)
-        gene = Gene(ncbiproteinid_url[1],ncbigeneid_url[1], uniprotid_url[1], symbol, name, organism, aa_len, sequence)
+        #(aa_len, aa_sequence) = getfromncbiprotein(ncbiproteinid_url)
+        gene = Gene(ncbiproteinid_url[1],ncbigeneid_url[1], uniprotid_url[1], symbol, name, organism, aa_len, aa_sequence)
         genes.append(gene)
         print("Time since start is: " + str(time.time()-start_time) + " seconds" )
 
-    if print_file:
+    filepath = 'output/pathway-'+args.keggid+" " + datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    if print_text_file:
         extension = ".tsv"
         import datetime
         #format similar to pathway-hsa00120_2017-02-28_14:30:14
-        filepath = 'output/pathway-'+args.keggid+" " + datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
         file = open(filepath + extension, 'w')
-        file.write("ncbiproteinid	ncbigeneid	uniprotid	symbol	name	organism	aa_len	sequence\n")
+        file.write("ncbiproteinid	ncbigeneid	uniprotid	symbol	name	organism	aa_len	aa_sequence\n")
         for gene in genes:
             file.write(gene.get_row()+"\n")
         file.close()
-    else:
-        print(gene.get_row())
+    if print_fasta_file:
+        #create FASTA file
+        from Bio.Seq import Seq
+        from Bio.SeqRecord import SeqRecord
+        from Bio.Alphabet import IUPAC
+        from Bio import SeqIO
+        records = []
+        for gene in genes:
+            records.append(SeqRecord(Seq(gene.aa_sequence, IUPAC.protein),
+                               id=gene.ncbiproteinid, #protein id
+                               name=gene.symbol,
+                               description=gene.name,
+                               annotations={"organism":gene.organism })) #annotations don't actually show up in .fasta
+        SeqIO.write(records, filepath + ".fasta", "fasta")
+    print(gene.get_row())
+    #hsa00120
     print("Finished in "+str(time.time()-start_time)+" seconds")
 
 
@@ -101,7 +116,7 @@ def kegggene2xref(kegggene_url):
     ncbigeneid_url = None
     uniprotid_url = None
     aa_len = None
-    sequence = None
+    aa_sequence = None
     for th in ths:
         th_nobr = th.nobr
         if th_nobr.string.lower().strip() == "other dbs": #is the header cell for the Other DBs row
@@ -141,13 +156,13 @@ def kegggene2xref(kegggene_url):
                             aa_lenstr = " ".join(child.string.split()).replace(" aa","")
                             aa_len = int(aa_lenstr)
                         else:
-                            sequence = child.string.strip()
+                            aa_sequence = child.string.strip()
                 #bs4.element.Tag. The two <a> (which are unnecessary) as well as the <br> we want will get past the first part of the logical statement
                 elif type(child) is Tag and child.name == "br":
-                    sequence = "".join(str(child).replace("<br>","").replace("</br>","").split())
+                    aa_sequence = "".join(str(child).replace("<br>","").replace("</br>","").split())
 
 
-    return (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, sequence)
+    return (ncbiproteinid_url, ncbigeneid_url, uniprotid_url, aa_len, aa_sequence)
 
 #returns (symbol, name, organism) = getfromncbigene(ncbigeneid_url)
 def getfromncbigene(ncbigeneid_url):
@@ -193,7 +208,7 @@ def getfromncbigene(ncbigeneid_url):
 
     return (symbol, name, organism)
 
-#(aa_len, sequence) = getfromncbiprotein(ncbiproteinid_url)
+#(aa_len, aa_sequence) = getfromncbiprotein(ncbiproteinid_url)
 
 
 if __name__ == "__main__":
